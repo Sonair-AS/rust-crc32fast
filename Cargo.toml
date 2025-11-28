@@ -23,6 +23,7 @@ rand = "0.8"
 default = ["std"]
 std = []
 nightly = []
+certified_subset = []
 
 [[bench]]
 name = "bench"

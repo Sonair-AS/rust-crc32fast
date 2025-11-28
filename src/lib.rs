@@ -36,7 +36,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
+#[cfg(not(feature = "certified_subset"))]
 use core::fmt;
+#[cfg(not(feature = "certified_subset"))]
 use core::hash;
 
 mod baseline;
@@ -155,6 +157,7 @@ impl Hasher {
     }
 }
 
+#[cfg(not(feature = "certified_subset"))]
 impl fmt::Debug for Hasher {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("crc32fast::Hasher").finish()
@@ -167,6 +170,7 @@ impl Default for Hasher {
     }
 }
 
+#[cfg(not(feature = "certified_subset"))]
 impl hash::Hasher for Hasher {
     fn write(&mut self, bytes: &[u8]) {
         self.update(bytes)
