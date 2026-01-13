@@ -1,3 +1,7 @@
+#[cfg(feature = "compact_table")]
+use crate::table::CRC32_TABLE_SMALL;
+
+#[cfg(not(feature = "compact_table"))]
 use crate::table::CRC32_TABLE;
 
 #[derive(Clone)]
@@ -27,6 +31,7 @@ impl State {
     }
 }
 
+#[cfg(not(feature = "compact_table"))]
 pub(crate) fn update_fast_16(prev: u32, mut buf: &[u8]) -> u32 {
     const UNROLL: usize = 4;
     const BYTES_AT_ONCE: usize = 16 * UNROLL;
@@ -58,9 +63,20 @@ pub(crate) fn update_fast_16(prev: u32, mut buf: &[u8]) -> u32 {
     update_slow(!crc, buf)
 }
 
+#[cfg(feature = "compact_table")]
+pub(crate) fn update_fast_16(prev: u32, buf: &[u8]) -> u32 {
+    update_slow(prev, buf)
+}
+
 pub(crate) fn update_slow(prev: u32, buf: &[u8]) -> u32 {
     let mut crc = !prev;
 
+    #[cfg(feature = "compact_table")]
+    for &byte in buf.iter() {
+        crc = CRC32_TABLE_SMALL[((crc as u8) ^ byte) as usize] ^ (crc >> 8);
+    }
+
+    #[cfg(not(feature = "compact_table"))]
     for &byte in buf.iter() {
         crc = CRC32_TABLE[0][((crc as u8) ^ byte) as usize] ^ (crc >> 8);
     }

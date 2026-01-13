@@ -24,6 +24,7 @@ default = ["std"]
 std = []
 nightly = []
 certified_subset = []
+compact_table = []
 
 [[bench]]
 name = "bench"
