@@ -26,6 +26,10 @@ nightly = []
 certified_subset = []
 compact_table = []
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [[bench]]
 name = "bench"
 harness = false
+

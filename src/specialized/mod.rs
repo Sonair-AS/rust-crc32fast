@@ -47,6 +47,7 @@ impl State {
         match *self {}
     }
 
+    #[cfg(not(feature = "certified_subset"))]
     pub fn combine(&mut self, _other: u32, _amount: u64) {
         match *self {}
     }

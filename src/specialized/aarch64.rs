@@ -42,6 +42,7 @@ impl State {
         self.state = 0;
     }
 
+    #[cfg(not(feature = "certified_subset"))]
     pub fn combine(&mut self, other: u32, amount: u64) {
         self.state = crate::combine::combine(self.state, other, amount);
     }

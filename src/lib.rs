@@ -1,15 +1,21 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 //! Fast, SIMD-accelerated CRC32 (IEEE) checksum computation.
 //!
 //! ## Usage
 //!
-//! ### Simple usage
-//!
-//! For simple use-cases, you can call the [`hash()`] convenience function to
-//! directly compute the CRC32 checksum for a given byte slice:
-//!
-//! ```rust
-//! let checksum = crc32fast::hash(b"foo bar baz");
-//! ```
+#![cfg_attr(
+    not(feature = "certified_subset"),
+    doc = r###"### Simple usage
+
+For simple use-cases, you can call the [`hash()`] convenience function to
+directly compute the CRC32 checksum for a given byte slice:
+
+```rust
+let checksum = crc32fast::hash(b"foo bar baz");
+```
+
+"###
+)]
 //!
 //! ### Advanced usage
 //!
@@ -40,15 +46,17 @@
 use core::fmt;
 #[cfg(not(feature = "certified_subset"))]
 use core::hash;
+#[cfg(not(feature = "certified_subset"))]
+mod combine;
 
 mod baseline;
-mod combine;
 mod specialized;
 mod table;
 
 /// Computes the CRC32 hash of a byte slice.
 ///
 /// Check out [`Hasher`] for more advanced use-cases.
+#[cfg(not(feature = "certified_subset"))]
 pub fn hash(buf: &[u8]) -> u32 {
     let mut h = Hasher::new();
     h.update(buf);
@@ -92,6 +100,8 @@ impl Hasher {
     /// As `new_with_initial`, but also accepts a length (in bytes). The
     /// resulting object can then be used with `combine` to compute `crc(a ||
     /// b)` from `crc(a)`, `crc(b)`, and `len(b)`.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    // Coverage off because all code paths can not be reached when compiling for a single target.
     pub fn new_with_initial_len(init: u32, amount: u64) -> Self {
         Self::internal_new_specialized(init, amount)
             .unwrap_or_else(|| Self::internal_new_baseline(init, amount))
@@ -108,6 +118,8 @@ impl Hasher {
 
     #[doc(hidden)]
     // Internal-only API. Don't use.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    // Coverage(off) because all code paths can not be reached when compiling for a single target.
     pub fn internal_new_specialized(init: u32, amount: u64) -> Option<Self> {
         {
             if let Some(state) = specialized::State::new(init) {
@@ -147,6 +159,7 @@ impl Hasher {
     }
 
     /// Combine the hash state with the hash state for the subsequent block of bytes.
+    #[cfg(not(feature = "certified_subset"))]
     pub fn combine(&mut self, other: &Self) {
         self.amount += other.amount;
         let other_crc = other.clone().finalize();
@@ -164,6 +177,7 @@ impl fmt::Debug for Hasher {
     }
 }
 
+#[cfg(not(feature = "certified_subset"))]
 impl Default for Hasher {
     fn default() -> Self {
         Self::new()
@@ -183,9 +197,77 @@ impl hash::Hasher for Hasher {
 
 #[cfg(test)]
 mod test {
-    use super::Hasher;
+    use super::*;
+
+    #[test]
+    fn hasher_specialized_implementation_if_target_features_are_available() {
+        // Tests will run on specialized implementation using target features if they are available.
+        // The tests will fall back to the baseline implementation if the target features are not available.
+        assert_eq!(Hasher::new().finalize(), 0);
+
+        let hasher = Hasher::new_with_initial(!0x12345678);
+        assert_eq!(hasher.finalize(), !0x12345678);
+
+        let mut hasher = Hasher::new_with_initial(!0xffffffff);
+        hasher.update(b"hello world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::new();
+        hasher.update(b"hello");
+        assert_eq!(hasher.finalize(), !0xc9ef5979);
+
+        let mut hasher = Hasher::new_with_initial(!0xc9ef5979);
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::new();
+        hasher.update(b"hello");
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::new();
+        hasher.update(b"ABCD");
+        hasher.reset();
+        hasher.update(b"hello");
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+    }
+
+    #[test]
+    fn hasher_forced_baseline_implementation() {
+        // Tests will use internal APIs to force the baseline implementation.
+        assert_eq!(Hasher::internal_new_baseline(DEFAULT_INIT_STATE, 0).finalize(), 0);
+
+        let hasher = Hasher::internal_new_baseline(!0x12345678, 0);
+        assert_eq!(hasher.finalize(), !0x12345678);
+
+        let mut hasher = Hasher::internal_new_baseline(!0xffffffff, 0);
+        hasher.update(b"hello world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::internal_new_baseline(DEFAULT_INIT_STATE, 0);
+        hasher.update(b"hello");
+        assert_eq!(hasher.finalize(), !0xc9ef5979);
+
+        let mut hasher = Hasher::internal_new_baseline(!0xc9ef5979, 0);
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::internal_new_baseline(DEFAULT_INIT_STATE, 0);
+        hasher.update(b"hello");
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+
+        let mut hasher = Hasher::internal_new_baseline(DEFAULT_INIT_STATE, 0);
+        hasher.update(b"ABCD");
+        hasher.reset();
+        hasher.update(b"hello");
+        hasher.update(b" world");
+        assert_eq!(hasher.finalize(), !0xf2b5ee7a);
+    }
 
     quickcheck::quickcheck! {
+        #[cfg(not(feature = "certified_subset"))]
         fn combine(bytes_1: Vec<u8>, bytes_2: Vec<u8>) -> bool {
             let mut hash_a = Hasher::new();
             hash_a.update(&bytes_1);
@@ -199,6 +281,7 @@ mod test {
             hash_a.finalize() == hash_c.finalize()
         }
 
+        #[cfg(not(feature = "certified_subset"))]
         fn combine_from_len(bytes_1: Vec<u8>, bytes_2: Vec<u8>) -> bool {
             let mut hash_a = Hasher::new();
             hash_a.update(&bytes_1);

@@ -26,6 +26,7 @@ impl State {
         self.state = 0;
     }
 
+    #[cfg(not(feature = "certified_subset"))]
     pub fn combine(&mut self, other: u32, amount: u64) {
         self.state = crate::combine::combine(self.state, other, amount);
     }
@@ -86,6 +87,16 @@ pub(crate) fn update_slow(prev: u32, buf: &[u8]) -> u32 {
 
 #[cfg(test)]
 mod test {
+    use super::State;
+
+    #[test]
+    fn reset_clears_internal_state() {
+        let mut state = State::new(0);
+        state.update(b"hello world");
+        state.reset();
+        assert_eq!(state.finalize(), 0);
+    }
+
     #[test]
     fn slow() {
         assert_eq!(super::update_slow(0, b""), 0);
