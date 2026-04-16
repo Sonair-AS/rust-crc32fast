@@ -17,6 +17,8 @@ pub struct State {
     state: u32,
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+// Coverage(off) because this specialized implementation for x86 will only be reached while testing, not on production hardware.
 impl State {
     #[cfg(not(feature = "std"))]
     pub fn new(state: u32) -> Option<Self> {
@@ -60,6 +62,7 @@ impl State {
         self.state = 0;
     }
 
+    #[cfg(not(feature = "certified_subset"))]
     pub fn combine(&mut self, other: u32, amount: u64) {
         self.state = crate::combine::combine(self.state, other, amount);
     }
@@ -75,6 +78,8 @@ const P_X: i64 = 0x1DB710641;
 const U_PRIME: i64 = 0x1F7011641;
 
 #[target_feature(enable = "pclmulqdq", enable = "sse2", enable = "sse4.1")]
+#[cfg_attr(coverage_nightly, coverage(off))]
+// Coverage(off) because this specialized implementation for x86 will only be reached while testing, not on production hardware.
 unsafe fn calculate(crc: u32, mut data: &[u8]) -> u32 {
     // In theory we can accelerate smaller chunks too, but for now just rely on
     // the fallback implementation as it's too much hassle and doesn't seem too
@@ -171,12 +176,16 @@ unsafe fn calculate(crc: u32, mut data: &[u8]) -> u32 {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+// Coverage(off) because this specialized implementation for x86 will only be reached while testing, not on production hardware.
 unsafe fn reduce128(a: arch::__m128i, b: arch::__m128i, keys: arch::__m128i) -> arch::__m128i {
     let t1 = arch::_mm_clmulepi64_si128(a, keys, 0x00);
     let t2 = arch::_mm_clmulepi64_si128(a, keys, 0x11);
     arch::_mm_xor_si128(arch::_mm_xor_si128(b, t1), t2)
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+// Coverage(off) because this specialized implementation for x86 will only be reached while testing, not on production hardware.
 unsafe fn get(a: &mut &[u8]) -> arch::__m128i {
     debug_assert!(a.len() >= 16);
     let r = arch::_mm_loadu_si128(a.as_ptr() as *const arch::__m128i);
